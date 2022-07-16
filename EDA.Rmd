@@ -1,0 +1,175 @@
+---
+title: "EDA"
+output: html_document
+date: '2022-07-15'
+---
+
+```{r setup, echo = FALSE, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Load Packages
+
+```{r cars, echo = FALSE, include = FALSE}
+
+library(tidyverse)
+library(nflfastR)
+library(ggrepel)
+library(readr)
+library(ggpubr)
+
+```
+
+
+# Load Data
+
+``` {r loadData, echo = FALSE, include = FALSE}
+
+basePlays <- read_csv("Data/basePlays.csv")
+
+```
+
+
+# Score Differential and Kick Distance Scatter Plot
+
+score_differential= score(posteam) - score(def_team)
+
+```{r scatterScoreDistance, echo=FALSE}
+
+scoreDistanceScatter <- basePlays %>%
+  filter(field_goal_attempt == 1, !is.na(prev_def_team_to)) %>%
+  select(score_differential, kick_distance, success, prev_def_team_to) %>%
+  ggplot(aes(x = score_differential, y = kick_distance, color = as.factor(success))) + 
+  geom_point(alpha = .3, size = .75) +
+  facet_wrap(~prev_def_team_to) + 
+  theme_minimal()
+scoreDistanceScatter
+
+```
+
+# What proportion of field goals are taken immediately after a defensive timeout
+
+```{r prop, echo = FALSE}
+
+prop <- basePlays %>%
+  filter(!is.na(prev_def_team_to)) %>%
+  select(field_goal_attempt, prev_def_team_to) %>%
+  group_by(field_goal_attempt, prev_def_team_to) %>%
+  summarise(prop = mean(prev_def_team_to))
+prop
+
+propFG <- basePlays %>%
+  filter(field_goal_attempt == 1, !is.na(prev_def_team_to)) %>%
+  group_by(prev_def_team_to) %>%
+  summarise(prop = mean(success)) 
+propFG
+
+barProp <- basePlays %>%
+  filter(field_goal_attempt == 1, !is.na(prev_def_team_to)) %>% 
+  group_by(prev_def_team_to, field_goal_result) %>%
+  summarise(count = n(),
+            field_goal_result, prev_def_team_to,
+            .groups = "drop") %>%
+  ungroup() %>%
+  group_by(prev_def_team_to) %>%
+  summarise(total = n(),
+            field_goal_result, prev_def_team_to, count,
+            .groups = "drop") %>%
+  mutate(prop = count / total) %>%
+  ggplot(aes(x = as.factor(prev_def_team_to), 
+             fill = field_goal_result)) +
+  geom_bar(aes(y = prop), stat = "identity",
+           position = "dodge") + 
+  theme_minimal() + 
+  theme(legend.position = "bottom")
+barProp
+
+```
+
+
+# Density, etc. Plots
+
+``` {r density, echo = FALSE}
+
+distanceDensity <- basePlays %>%
+  filter(field_goal_attempt == 1, !is.na(prev_def_team_to)) %>%
+  ggplot(aes(x = kick_distance, color = as.factor(prev_def_team_to))) + 
+  geom_density() + 
+  theme_bw() + 
+  theme(legend.position = "bottom") + 
+  labs(title = "Kick Distance",
+       color = "Timeout")
+distanceDensity
+
+halfTimeDensity <- basePlays %>%
+  filter(field_goal_attempt == 1, !is.na(prev_def_team_to)) %>%
+  ggplot(aes(x = half_seconds_remaining, color = as.factor(prev_def_team_to))) + 
+  geom_density() + 
+  scale_x_reverse() +
+  geom_vline(xintercept = 900) + 
+  theme_bw() + 
+  theme(legend.position = "bottom") + 
+  labs(title = "Time Left in Half",
+       color = "Timeout")
+halfTimeDensity
+
+gameTimeDensity <- basePlays %>%
+  filter(field_goal_attempt == 1, !is.na(prev_def_team_to)) %>%
+  ggplot(aes(x = game_seconds_remaining, color = as.factor(prev_def_team_to))) + 
+  geom_density() + 
+  scale_x_reverse() +
+  geom_vline(xintercept = 1800) + 
+  theme_bw() + 
+  theme(legend.position = "bottom") + 
+  labs(title = "Time Left in Game",
+       color = "Timeout")
+gameTimeDensity
+  
+winDensity <- basePlays %>%
+  filter(field_goal_attempt == 1, !is.na(prev_def_team_to)) %>%
+  ggplot(aes(x = wp, color = as.factor(prev_def_team_to))) + 
+  geom_density() + 
+  theme_bw() + 
+  theme(legend.position = "bottom") + 
+  labs(title = "Win Probability",
+       color = "Timeout")
+winDensity
+
+epDensity <- basePlays %>%
+  filter(field_goal_attempt == 1, !is.na(prev_def_team_to)) %>%
+  ggplot(aes(x = ep, color = as.factor(prev_def_team_to))) + 
+  geom_density() + 
+  theme_bw() + 
+  theme(legend.position = "bottom") + 
+  labs(title = "Expected Points",
+       color = "Timeout")
+epDensity
+
+scoreDensity <- basePlays %>%
+  filter(field_goal_attempt == 1, !is.na(prev_def_team_to)) %>%
+  ggplot(aes(x = score_differential, color = as.factor(prev_def_team_to))) + 
+  geom_density() + 
+  theme_bw() + 
+  theme(legend.position = "bottom") + 
+  labs(title = "Score Differential",
+       color = "Timeout")
+scoreDensity
+
+
+density <- ggarrange(distanceDensity, halfTimeDensity, gameTimeDensity, 
+                    winDensity, epDensity, scoreDensity)
+density
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
