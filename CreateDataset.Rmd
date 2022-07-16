@@ -1,0 +1,139 @@
+---
+title: "Icing the Kicker"
+output: html_document
+date: '2022-07-06'
+---
+
+# Load Packages
+
+```{r, echo = FALSE, include = FALSE}
+
+library(tidyverse)
+library(nflfastR)
+library(ggrepel)
+library(readr)
+
+```
+
+
+# Load Original Data
+
+```{r loadOriginalData, echo = FALSE}
+
+playsAlways <- nflfastR::load_pbp(1999:2021)
+write_csv(playsAlways, "/Users/sierra/Documents/CMU/Projects/Icing_the_Kicker/Data//playsAlways.csv")
+
+```
+
+
+# Filter for what's needed and figure out if kicker was iced or not
+
+and other variables that can be used for matching purposes
+
+
+```{r}
+
+read_csv("basePlays.csv")
+playsAlways <- read_csv("playsAlways.csv")
+
+plays <- playsAlways %>%
+  mutate(def_team_to = as.numeric(posteam != timeout_team & !is.na(posteam) & !is.na(timeout_team)),
+         prev_to = lag(timeout),
+         prev_def_team_to = prev_to * lag(def_team_to)) %>%
+  filter(play_type %in% c("field_goal") | timeout == 1) %>%
+  select(play_id, game_id, old_game_id, home_team, away_team, play_type,
+         timeout, posteam, timeout_team, def_team_to, prev_to,
+         prev_def_team_to, desc, half_seconds_remaining,
+         game_seconds_remaining, quarter_end, sp,
+         qtr, goal_to_go, yrdln, yardline_100, ydstogo,
+         field_goal_result, kick_distance, score_differential,
+         score_differential_post, field_goal_attempt,
+         kicker_player_name, kicker_player_id, end_clock_time, result,
+         success, special, game_half, wp, ep)
+
+
+write_csv(plays, "/Users/sierra/Documents/CMU/Projects/Icing_the_Kicker/Data//basePlays.csv")
+plays
+  
+
+```
+
+
+# Time Elapsed = 0 
+
+```{r timeElapsed, echo = FALSE}
+
+timeElapsed0 <- read_csv("basePlays.csv") %>%
+  filter(prev_def_team_to == 1)
+
+```
+
+
+# Field Goals throughout the games
+
+```{r explorin, echo = FALSE}
+
+#histogram
+basePlays <- read.csv("basePlays.csv")
+fgPlays <- basePlays %>%
+  filter(field_goal_attempt == 1) %>%
+  ggplot(aes(x = game_seconds_remaining)) + 
+  geom_histogram(binwidth = 60, closed = "right") + 
+  theme_bw() + 
+  geom_vline(xintercept = 900, color = "darkred", linetype = "dashed") + 
+  geom_vline(xintercept = 1800, color = "darkred", linetype = "dashed") + 
+  geom_vline(xintercept = 2700, color = "darkred", linetype = "dashed")
+fgPlays
+  
+```
+
+
+# Explorin' Stuff with Kick Distance
+
+```{r distance explorin, echo = FALSE}
+
+fgPlays <- basePlays %>%
+  filter(play_type %in% "field_goal") %>%
+  ggplot(aes(x = score_differential, y = kick_distance, color = field_goal_result)) + 
+  geom_point(alpha = .3, size = .5) + 
+  theme_bw()
+fgPlays
+
+kickDistance <- basePlays %>%
+  filter(play_type %in% "field_goal") %>%
+  ggplot(aes(x = success))
+
+```
+
+
+# Maybe Something with If They Were Iced?
+
+```{r iced, echo = FALSE}
+
+icedOrNotIced <- plays %>%
+  filter(play_type %in% "field_goal") %>%
+  ggplot(aes(x = field_goal_result, fill = prev_def_team_to)) + 
+  geom_bar() 
+icedOrNotIced
+
+barProp <- basePlays %>%
+  filter(field_goal_attempt == 1) %>%
+  group_by(field_goal_result) %>%
+  summarise(field_goal_result,
+            prop = mean(success),
+            prev_def_team_to,
+            .groups = "drop") %>%
+  ggplot(aes(x = reorder(field_goal_result, -prop), y = prop, fill = prev_def_team_to)) +
+  geom_bar(position = "dodge")
+  
+barProp
+  
+
+```
+
+
+
+
+
+
+
