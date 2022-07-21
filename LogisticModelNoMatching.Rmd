@@ -1,0 +1,103 @@
+---
+title: "Logistic Regression Without Matching"
+output: html_document
+date: '2022-07-19'
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Load Packages
+
+```{r packages, echo = FALSE, include = FALSE, warning = FALSE}
+
+library(tidyverse)
+library(glmnet)
+library(caret)
+library(gam)
+library(ggpubr)
+
+```
+
+
+# Load Data
+
+```{r data, include = FALSE, echo = FALSE, warning = FALSE}
+
+basePlays <- read_csv("Data/basePlays.csv")
+fgPlays <- read_csv("Data/fgPlays.csv")
+
+```
+
+
+
+# Fit Logit Model
+
+```{r noMatchModelglm, echo = FALSE}
+
+noMatchLogit <- glm(success ~ kick_distance + as.factor(prev_def_team_to), 
+                    data = fgPlays,
+                    family = "binomial")
+
+logNoMatchVisual <- fgPlays %>%
+  mutate(predProb = noMatchLogit$fitted.values) %>%
+  ggplot(aes(x = kick_distance)) + 
+  geom_line(aes(y = predProb), color = "blue") + 
+  geom_point(aes(y = success), alpha = .2, color = "darkorange") + 
+  theme_bw() + 
+  labs(title = "GLM")
+logNoMatchVisual
+
+summary(noMatchLogit)
+head(noMatchLogit$fitted.values)
+summary(noMatchLogit$fitted.values)
+
+```
+
+
+# GAM
+
+```{r noMatchModelgam, echo = FALSE}
+
+noMatchGAM <- gam(success ~ s(kick_distance) + as.factor(is_iced_kick), 
+                  data = fgPlays, 
+                  family = binomial)
+
+logNoMatchGAMVisual <- fgPlays %>%
+  mutate(predProb = noMatchGAM$fitted.values) %>%
+  ggplot(aes(x = kick_distance)) + 
+  geom_point(aes(y = predProb, color = as.factor(is_iced_kick)), 
+             alpha = .5, size = .75) +
+  geom_point(aes(y = success), alpha = .2, size = .75, color = "darkorange") + 
+  theme_bw() +
+  labs(title = "GAM",
+       color = "Timeout",
+       x = "Kick Distance",
+       y = "Predicted Probability") 
+logNoMatchGAMVisual
+
+summary(noMatchGAM)
+head(noMatchGAM$fitted.values)
+summary(noMatchGAM$fitted.values)
+
+```
+
+# Look at models side by side 
+
+```{r visual, echo = FALSE}
+
+noMatchModels <- ggarrange(logNoMatchGAMVisual, logNoMatchVisual)
+noMatchModels
+
+```
+
+
+
+
+
+
+
+
+
