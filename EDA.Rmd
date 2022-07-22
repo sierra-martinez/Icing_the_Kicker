@@ -4,44 +4,46 @@ output: html_document
 date: '2022-07-15'
 ---
 
-```{r setup, echo = FALSE, include=FALSE}
+```{r setup, echo = FALSE, include = FALSE, warning = FALSE, message = FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
 # Load Packages
 
-```{r cars, echo = FALSE, include = FALSE}
+```{r cars, echo = FALSE, include = FALSE, warning = FALSE, message = FALSE}
 
 library(tidyverse)
 library(nflfastR)
 library(ggrepel)
 library(readr)
 library(ggpubr)
+library(knitr)
 
 ```
 
 
 # Load Data
 
-``` {r loadData, echo = FALSE, include = FALSE}
+``` {r loadData, echo = FALSE, include = FALSE, warning = FALSE, message = FALSE}
 
-basePlays <- read_csv("Data/basePlays.csv")
+fgPlays <- read_csv("Data/fgPlays.csv")
 
 ```
 
 
 # Score Differential and Kick Distance Scatter Plot
 
-score_differential= score(posteam) - score(def_team)
+```{r scatterScoreDistance, echo = FALSE, warning = FALSE, message = FALSE}
 
-```{r scatterScoreDistance, echo=FALSE}
-
-scoreDistanceScatter <- basePlays %>%
+scoreDistanceScatter <- fgPlays %>%
   filter(field_goal_attempt == 1, !is.na(prev_def_team_to)) %>%
   select(score_differential, kick_distance, success, prev_def_team_to) %>%
   ggplot(aes(x = score_differential, y = kick_distance, color = as.factor(success))) + 
-  geom_point(alpha = .3, size = .75) +
+  geom_point(alpha = .5, size = .75) +
   facet_wrap(~prev_def_team_to) + 
+  labs(x = "Score differential",
+       y = "Kick distance") + 
+  theme(legend.title = "Defensive TO or not") + 
   theme_minimal()
 scoreDistanceScatter
 
@@ -49,22 +51,28 @@ scoreDistanceScatter
 
 # What proportion of field goals are taken immediately after a defensive timeout
 
-```{r prop, echo = FALSE}
+```{r prop, echo = FALSE, warning = FALSE, message = FALSE}
 
-prop <- basePlays %>%
-  filter(!is.na(prev_def_team_to)) %>%
+prop <- fgPlays %>%
+  filter(field_goal_attempt == 1, !is.na(prev_def_team_to)) %>%
   select(field_goal_attempt, prev_def_team_to) %>%
   group_by(field_goal_attempt, prev_def_team_to) %>%
   summarise(prop = mean(prev_def_team_to))
 prop
 
-propFG <- basePlays %>%
+count <- fgPlays %>%
+  filter(field_goal_attempt == 1 & !is.na(prev_def_team_to)) %>%
+  group_by(prev_def_team_to) %>%
+  summarise(count = n())
+count
+
+propFG <- fgPlays %>%
   filter(field_goal_attempt == 1, !is.na(prev_def_team_to)) %>%
   group_by(prev_def_team_to) %>%
   summarise(prop = mean(success)) 
 propFG
 
-barProp <- basePlays %>%
+barProp <- fgPlays %>%
   filter(field_goal_attempt == 1, !is.na(prev_def_team_to)) %>% 
   group_by(prev_def_team_to, field_goal_result) %>%
   summarise(count = n(),
@@ -89,9 +97,9 @@ barProp
 
 # Density, etc. Plots
 
-``` {r density, echo = FALSE}
+``` {r density, echo = FALSE, warning = FALSE, message = FALSE}
 
-distanceDensity <- basePlays %>%
+distanceDensity <- fgPlays %>%
   filter(field_goal_attempt == 1, !is.na(prev_def_team_to)) %>%
   ggplot(aes(x = kick_distance, color = as.factor(prev_def_team_to))) + 
   geom_density() + 
@@ -101,7 +109,7 @@ distanceDensity <- basePlays %>%
        color = "Timeout")
 distanceDensity
 
-halfTimeDensity <- basePlays %>%
+halfTimeDensity <- fgPlays %>%
   filter(field_goal_attempt == 1, !is.na(prev_def_team_to)) %>%
   ggplot(aes(x = half_seconds_remaining, color = as.factor(prev_def_team_to))) + 
   geom_density() + 
@@ -113,7 +121,7 @@ halfTimeDensity <- basePlays %>%
        color = "Timeout")
 halfTimeDensity
 
-gameTimeDensity <- basePlays %>%
+gameTimeDensity <- fgPlays %>%
   filter(field_goal_attempt == 1, !is.na(prev_def_team_to)) %>%
   ggplot(aes(x = game_seconds_remaining, color = as.factor(prev_def_team_to))) + 
   geom_density() + 
@@ -125,7 +133,7 @@ gameTimeDensity <- basePlays %>%
        color = "Timeout")
 gameTimeDensity
   
-winDensity <- basePlays %>%
+winDensity <- fgPlays %>%
   filter(field_goal_attempt == 1, !is.na(prev_def_team_to)) %>%
   ggplot(aes(x = wp, color = as.factor(prev_def_team_to))) + 
   geom_density() + 
@@ -135,7 +143,7 @@ winDensity <- basePlays %>%
        color = "Timeout")
 winDensity
 
-epDensity <- basePlays %>%
+epDensity <- fgPlays %>%
   filter(field_goal_attempt == 1, !is.na(prev_def_team_to)) %>%
   ggplot(aes(x = ep, color = as.factor(prev_def_team_to))) + 
   geom_density() + 
@@ -145,10 +153,11 @@ epDensity <- basePlays %>%
        color = "Timeout")
 epDensity
 
-scoreDensity <- basePlays %>%
+scoreDensity <- fgPlays %>%
   filter(field_goal_attempt == 1, !is.na(prev_def_team_to)) %>%
   ggplot(aes(x = score_differential, color = as.factor(prev_def_team_to))) + 
   geom_density() + 
+  geom_vline(xintercept = -3) +
   theme_bw() + 
   theme(legend.position = "bottom") + 
   labs(title = "Score Differential",
@@ -163,8 +172,74 @@ density
 ```
 
 
+# Looking at some gambling data
 
+```{r gambling, echo = FALSE, warning = FALSE, message = FALSE}
 
+gamblingDensity <- fgPlays %>%
+  filter(field_goal_attempt == 1, !is.na(prev_def_team_to)) %>%
+  ggplot(aes(x = vegas_wp, color = as.factor(prev_def_team_to))) + 
+  geom_density() + 
+  theme_bw() +
+  theme(legend.position = "bottom") + 
+  labs(title = "Vegas Win Probability",
+       color = "Timeout") 
+gamblingDensity
+
+```
+
+# Create Nice Table of Variables and Descriptions
+
+```{r variableDescriptions, echo = FALSE}
+
+variableNames <- colnames(fgPlays)
+variableNamesList <- data.frame(variableNames)
+
+variableDesc <- c("Numeric play id that when used with game_id and drive provides the unique identifier for a single play", 
+                  "Ten digit identifier for NFL game", 
+                  "Legacy NFL game ID", 
+                  "String abbreviation for the home team", 
+                  "String abbreviation for the away team", 
+                  "String indicating the type of play: pass (includes sacks), run (includes scrambles), punt, field_goal, kickoff, extra_point, qb_kneel, qb_spike, no_play (timeouts and penalties), and missing for rows indicating end of play", 
+                  "Binary indicator for whether or not a timeout was called by either team", 
+                  "String abbreviation for the team with possession", 
+                  "String abbreviation for the team on defense", 
+                  "Prev_def_team_to", 
+                  "is_iced_kick", 
+                  "Detailed string description for the given play", 
+                  "Numeric seconds remaining in the half", 
+                  "Numeric seconds remaining in the game", 
+                  "Binary indicator for whether or not the row of the data is marking the end of a quarter", 
+                  "Binary indicator for whether or not a score occurred on the play", 
+                  "Quarter of the game (5 is overtime)", 
+                  "Binary indicator for whether or not the posteam is in a goal down situation", 
+                  "String indicating the current field position for a given play", 
+                  "Numeric distance in the number of yards from the opponent's endzone for the posteam", 
+                  "Numeric yards in distance from either the first down marker or the endzone in goal down situations", 
+                  "String indicator for result of field goal attempt: made, missed, or blocked", 
+                  "Numeric distance in yards for kickoffs, field goals, and punts", 
+                  "Score differential between the posteam and defteam at the start of the play", 
+                  "Score differential between the posteam and defteam at the end of the play", 
+                  "Binary indicator for field goal attempt", 
+                  "String name for the kicker on FG or kickoff", 
+                  "Unique identifier for the kicker on FG or kickoff", 
+                  "Game time at the end of a given play", 
+                  "Equals home_score - away_score and means the game outcome from the perspective of the home team",
+                  "Binary indicator wheter epa > 0 in the given play", 
+                  "Binary indicator if the play was a special teams play", 
+                  "String indicating which half the play is in, either Half1, Half2, or Overtime", 
+                  "Estimated win probabiity for the posteam given the current situation at the start of the given play", 
+                  "Using the scoring event probabilities, the estimated expected points with respect to the possession team for the given play", 
+                  "Estimated win probabiity for the posteam given the current situation at the start of the given play, incorporating pre-game Vegas line")
+
+variableDescList <- data.frame(variableDesc)
+
+variablesTable <- cbind(variableNamesList, variableDescList)
+colnames(variablesTable)[1] <- "Variable Names"
+colnames(variablesTable)[2] <- "Description"
+kable(variablesTable)
+
+```
 
 
 
