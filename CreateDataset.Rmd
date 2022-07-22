@@ -8,6 +8,7 @@ date: '2022-07-06'
 
 ```{r, echo = FALSE, include = FALSE}
 
+library(knitr)
 library(tidyverse)
 library(nflfastR)
 library(ggrepel)
@@ -33,31 +34,93 @@ and other variables that can be used for matching purposes
 
 ```{r}
 
-read_csv("basePlays.csv")
-playsAlways <- read_csv("playsAlways.csv")
+playsAlways <- read_csv("Data/playsAlways.csv")
 
-plays <- playsAlways %>%
-  mutate(def_team_to = as.numeric(posteam != timeout_team & !is.na(posteam) & !is.na(timeout_team)),
-         prev_to = lag(timeout),
-         prev_def_team_to = prev_to * lag(def_team_to)) %>%
-  filter(play_type %in% c("field_goal") | timeout == 1) %>%
+playsAlways <- playsAlways %>%
+  mutate(defteam = ifelse(is.na(defteam), "NOTHING", defteam),
+         timeout_team = ifelse(is.na(timeout_team), "NOTHING", timeout_team)) %>%
+  group_by(game_id) %>%
+  mutate(prev_def_team_to = as.numeric(defteam != "NOTHING") * 
+           as.numeric(defteam == lag(timeout_team)),
+         prev_def_team_to = ifelse(is.na(prev_def_team_to), 0,
+                                   prev_def_team_to)) %>%
+  ungroup() %>%
+  mutate(is_iced_kick = prev_def_team_to * field_goal_attempt) %>%
   select(play_id, game_id, old_game_id, home_team, away_team, play_type,
-         timeout, posteam, timeout_team, def_team_to, prev_to,
-         prev_def_team_to, desc, half_seconds_remaining,
-         game_seconds_remaining, quarter_end, sp,
+         timeout, posteam, defteam, prev_def_team_to, is_iced_kick, 
+         desc, half_seconds_remaining,game_seconds_remaining, quarter_end, sp,
          qtr, goal_to_go, yrdln, yardline_100, ydstogo,
          field_goal_result, kick_distance, score_differential,
          score_differential_post, field_goal_attempt,
          kicker_player_name, kicker_player_id, end_clock_time, result,
-         success, special, game_half, wp, ep)
+         success, special, game_half, wp, ep, vegas_wp)
 
+basePlays <- playsAlways %>%
+  filter(field_goal_attempt == 1 | timeout == 1)
 
-write_csv(plays, "/Users/sierra/Documents/CMU/Projects/Icing_the_Kicker/Data//basePlays.csv")
-plays
-  
+write_csv(basePlays, "/Users/sierra/Documents/CMU/Projects/Icing_the_Kicker/Data//basePlays.csv")
+basePlays
+
+fgPlays <- basePlays %>%
+  filter(field_goal_attempt == 1)
+write_csv(fgPlays, "/Users/sierra/Documents/CMU/Projects/Icing_the_Kicker/Data//fgPlays.csv")
+fgPlays
+
 
 ```
 
+# Create Nice Table of Variables and Descriptions
+
+```{r variableDescriptions, echo = FALSE}
+
+variableNames <- colnames(fgPlays)
+variableNamesList <- data.frame(variableNames)
+
+variableDesc <- c("Numeric play id that when used with game_id and drive provides the unique identifier for a single play", 
+                  "Ten digit identifier for NFL game", 
+                  "Legacy NFL game ID", 
+                  "String abbreviation for the home team", 
+                  "String abbreviation for the away team", 
+                  "String indicating the type of play: pass (includes sacks), run (includes scrambles), punt, field_goal, kickoff, extra_point, qb_kneel, qb_spike, no_play (timeouts and penalties), and missing for rows indicating end of play", 
+                  "Binary indicator for whether or not a timeout was called by either team", 
+                  "String abbreviation for the team with possession", 
+                  "String abbreviation for the team on defense", 
+                  "Prev_def_team_to", 
+                  "is_iced_kick", 
+                  "Detailed string description for the given play", 
+                  "Numeric seconds remaining in the half", 
+                  "Numeric seconds remaining in the game", 
+                  "Binary indicator for whether or not the row of the data is marking the end of a quarter", 
+                  "Binary indicator for whether or not a score occurred on the play", 
+                  "Quarter of the game (5 is overtime)", 
+                  "Binary indicator for whether or not the posteam is in a goal down situation", 
+                  "String indicating the current field position for a given play", 
+                  "Numeric distance in the number of yards from the opponent's endzone for the posteam", 
+                  "Numeric yards in distance from either the first down marker or the endzone in goal down situations", 
+                  "String indicator for result of field goal attempt: made, missed, or blocked", 
+                  "Numeric distance in yards for kickoffs, field goals, and punts", 
+                  "Score differential between the posteam and defteam at the start of the play", 
+                  "Score differential between the posteam and defteam at the end of the play", 
+                  "Binary indicator for field goal attempt", 
+                  "String name for the kicker on FG or kickoff", 
+                  "Unique identifier for the kicker on FG or kickoff", 
+                  "Game time at the end of a given play", 
+                  "Equals home_score - away_score and means the game outcome from the perspective of the home team",
+                  "Binary indicator wheter epa > 0 in the given play", 
+                  "Binary indicator if the play was a special teams play", 
+                  "String indicating which half the play is in, either Half1, Half2, or Overtime", 
+                  "Estimated win probabiity for the posteam given the current situation at the start of the given play", 
+                  "Using the scoring event probabilities, the estimated expected points with respect to the possession team for the given play", 
+                  "Estimated win probabiity for the posteam given the current situation at the start of the given play, incorporating pre-game Vegas line")
+
+variableDescList <- data.frame(variableDesc)
+
+variablesTable <- cbind(variableNamesList, variableDescList)
+colnames(variablesTable)[1] <- "Variable Names"
+colnames(variablesTable)[2] <- "Description"
+kable(variablesTable)
+
+```
 
 # Time Elapsed = 0 
 
