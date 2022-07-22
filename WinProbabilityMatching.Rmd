@@ -1,0 +1,93 @@
+---
+title: "Matching on Win Probability"
+output: html_document
+date: '2022-07-21'
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Load Packages
+
+```{r packages, echo = FALSE, include = FALSE, warning = FALSE}
+
+library(tidyverse)
+library(MatchIt)
+library(cobalt)
+library(mgcv)
+
+```
+
+# Load Data
+
+You can also embed plots, for example:
+
+```{r data, echo = FALSE, include = FALSE, warning = FALSE}
+
+fgPlays <- read_csv("Data/fgPlays.csv")
+
+```
+
+
+# Match based on wp
+
+```{r wpMatch, echo = FALSE}
+
+wpMatch <- matchit(prev_def_team_to ~ wp,
+                   data = fgPlays,
+                   mathod = "nearest",
+                   distance = "mahalanobis",
+                   replace = FALSE,
+                   ratio = 10)
+wpMatch
+summary(wpMatch)
+love.plot(wpMatch, binary = "std")
+plot(wpMatch, interactive = FALSE)
+
+```
+
+
+# Fit Matched GAM model
+
+
+```{r wpMatchModel, echo = FALSE}
+
+wpMatches <- match.data(wpMatch)
+table(wpMatches$is_iced_kick)
+
+wpMatchedLogit <- mgcv::gam(success ~ s(kick_distance) + as.factor(is_iced_kick),
+                      data = wpMatches, 
+                      family = "binomial")
+summary(wpMatchedLogit)
+
+wpMatches %>%
+  mutate(predProb = wpMatchedLogit$fitted.values) %>%
+  ggplot(aes(x = kick_distance)) + 
+  geom_point(aes(y = predProb, color = as.factor(is_iced_kick)),
+             alpha = .5, size = .75) + 
+  geom_point(aes(y = success), alpha = .5, size = .75,
+             color = "darkorange") + 
+  theme_bw() + 
+  labs(title = "Matched on Win Probability GAM",
+       color = "Timeout",
+       x = "Kick Distance",
+       y = "Predicted Probability") 
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
